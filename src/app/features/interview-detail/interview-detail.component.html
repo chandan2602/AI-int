@@ -1,0 +1,140 @@
+<div class="page">
+  <div *ngIf="loading" class="spinner-wrap">
+    <div class="spinner"></div>
+  </div>
+
+  <ng-container *ngIf="!loading && interview">
+
+    <!-- Header -->
+    <div class="page-header">
+      <div class="header-left">
+        <h1>{{ interview.name }}</h1>
+        <p class="objective">{{ interview.objective }}</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-outline" (click)="copyLink()">🔗 Copy Link</button>
+        <button class="btn btn-outline" (click)="openInviteModal()">📧 Send Invite</button>
+        <button class="btn btn-primary" (click)="generateInsights()" [disabled]="generatingInsights">
+          {{ generatingInsights ? 'Analyzing...' : '✨ Generate Insights' }}
+        </button>
+      </div>
+    </div>
+
+    <!-- Stats bar -->
+    <div class="stats-bar">
+      <div class="stat">
+        <span class="stat-value">{{ interview.question_count || 0 }}</span>
+        <span class="stat-label">Questions</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">{{ responses.length }}</span>
+        <span class="stat-label">Responses</span>
+      </div>
+      <div class="stat">
+        <span class="stat-value">{{ interview.time_duration || '—' }}</span>
+        <span class="stat-label">Duration</span>
+      </div>
+    </div>
+
+    <!-- Insights -->
+    <div class="card insights-card" *ngIf="interview.insights?.length">
+      <h2>✨ Insights</h2>
+      <ul class="insights-list">
+        <li *ngFor="let insight of interview.insights">{{ insight }}</li>
+      </ul>
+    </div>
+
+    <!-- Responses -->
+    <h2 class="section-title">Responses ({{ responses.length }})</h2>
+
+    <div *ngIf="responses.length === 0" class="empty-state">
+      <div class="empty-icon">👤</div>
+      <p>No responses yet.</p>
+      <span>Share the interview link with candidates to get started.</span>
+    </div>
+
+    <div class="response-card card" *ngFor="let r of responses">
+      <div class="response-header">
+        <div class="candidate-info">
+          <div class="avatar">{{ (r.name || 'A')[0].toUpperCase() }}</div>
+          <div>
+            <strong>{{ r.name || 'Anonymous' }}</strong>
+            <span class="email">{{ r.email }}</span>
+          </div>
+        </div>
+        <span
+          class="status-badge"
+          [class.status-selected]="r.candidate_status === 'selected'"
+          [class.status-rejected]="r.candidate_status === 'rejected'"
+        >
+          {{ r.candidate_status || 'Pending' }}
+        </span>
+      </div>
+
+      <!-- Analytics -->
+      <div class="analytics" *ngIf="r.analytics">
+        <div class="score-row">
+          <div class="score-chip">
+            <span class="score-num">{{ r.analytics.overallScore }}</span>
+            <span class="score-label">Overall</span>
+          </div>
+          <div class="score-chip">
+            <span class="score-num">{{ r.analytics.communication?.score }}</span>
+            <span class="score-label">Communication</span>
+          </div>
+        </div>
+        <p class="feedback-text">{{ r.analytics.overallFeedback }}</p>
+      </div>
+
+      <div class="response-actions">
+        <button
+          class="btn btn-primary btn-sm"
+          *ngIf="!r.analytics"
+          (click)="analyzeResponse(r)"
+          [disabled]="analyzingIds.has(r.id)"
+        >
+          {{ analyzingIds.has(r.id) ? 'Analyzing...' : '🔍 Analyze' }}
+        </button>
+        <button class="btn btn-danger btn-sm" (click)="deleteResponse(r.call_id!)">
+          🗑 Delete
+        </button>
+      </div>
+    </div>
+
+  </ng-container>
+</div>
+
+<!-- Invite Modal -->
+<div class="modal-overlay" *ngIf="showInviteModal" (click)="showInviteModal = false">
+  <div class="modal" (click)="$event.stopPropagation()">
+    <div class="modal-header">
+      <h2>📧 Send Interview Invite</h2>
+      <button class="modal-close" (click)="showInviteModal = false">✕</button>
+    </div>
+
+    <p class="modal-desc">
+      An email will be sent with the interview link, rules, and instructions.
+    </p>
+
+    <div class="form-group">
+      <label>Candidate Name</label>
+      <input [(ngModel)]="inviteName" placeholder="e.g. Jane Smith" />
+    </div>
+    <div class="form-group">
+      <label>Candidate Email</label>
+      <input type="email" [(ngModel)]="inviteEmail" placeholder="jane@example.com" />
+    </div>
+
+    <div class="invite-success" *ngIf="inviteSuccess">✓ {{ inviteSuccess }}</div>
+    <div class="invite-error" *ngIf="inviteError">⚠ {{ inviteError }}</div>
+
+    <button
+      class="btn btn-primary"
+      style="width:100%;margin-top:8px"
+      (click)="sendInvite()"
+      [disabled]="sendingInvite || !inviteEmail.trim() || !inviteName.trim()"
+    >
+      {{ sendingInvite ? 'Sending...' : 'Send Invite Email' }}
+    </button>
+  </div>
+</div>

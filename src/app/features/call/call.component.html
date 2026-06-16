@@ -1,0 +1,82 @@
+<div class="call-page">
+
+  <!-- Loading screen -->
+  <div class="loading-screen" *ngIf="loadingInterview">
+    <div class="brand-logo">Dhanush <span>AI</span></div>
+    <div class="spinner"></div>
+    <p>Loading your interview...</p>
+  </div>
+
+  <ng-container *ngIf="!loadingInterview && interview">
+
+      <!-- IDLE -->
+      <div class="layout" *ngIf="isIdle">
+        <div class="left-panel">
+          <div class="role-info">
+            <p class="role-label">You are applying for</p>
+            <h1 class="role-title">{{ interview.name }}</h1>
+            <p class="role-objective">{{ interview.objective }}</p>
+          </div>
+          <div class="monitoring-banner"><div class="monitor-icon">🛡️</div><div><strong>Proctored Session</strong><p>This interview is continuously monitored.</p></div></div>
+        </div>
+        <div class="right-panel">
+          <div class="top-bar"><div class="top-bar-left"><h2 class="rules-title">Before You Begin</h2></div><div class="top-bar-right"><div class="signed-in-badge" *ngIf="isAuthenticated"><span class="badge-dot"></span><span>{{ candidateName }}</span></div><button class="signin-top-btn" *ngIf="!isAuthenticated" (click)="openLoginModal()">🔐 Sign In</button></div></div>
+          <div class="form-section"><ng-container *ngIf="isAuthenticated; else notSignedIn"><h3>Your details</h3><div class="form-row"><div class="form-group"><label>Full Name</label><div class="prefilled-field">{{ candidateName }}</div></div><div class="form-group"><label>Email Address</label><div class="prefilled-field">{{ candidateEmail }}</div></div></div></ng-container><ng-template #notSignedIn><div class="signin-prompt"><span class="signin-prompt-icon">🔐</span><p>Please <button class="inline-link" (click)="openLoginModal()">sign in</button> with your credentials to enable the assessment.</p></div></ng-template><div class="consent-row"><input type="checkbox" id="consent" [(ngModel)]="consentChecked" [disabled]="!isAuthenticated" /><label for="consent">I understand this session is monitored and I agree to the interview guidelines stated above.</label></div><button class="start-btn" (click)="startInterview()" [disabled]="!isAuthenticated || !consentChecked">Start Interview</button></div>
+        </div>
+      </div>
+
+      <!-- LOADING -->
+      <div class="center-card" *ngIf="isLoading">
+        <div class="brand-logo">Dhanush <span>AI</span></div>
+        <div class="spinner large"></div>
+        <h2>Connecting to your AI Interviewer</h2>
+        <p>Please allow microphone access when prompted...</p>
+      </div>
+
+      <!-- ACTIVE -->
+      <div class="layout active-layout" *ngIf="isActive">
+        <nav class="top-nav"><div class="nav-left"><div class="brand-logo">Dhanush <span>AI</span></div></div><div class="nav-right"><div class="timer">{{ formatTime(roundTimeLeft) }}</div><div class="candidate-profile"><div class="avatar-placeholder">{{ candidateName ? (candidateName.charAt(0) | uppercase) : 'G' }}</div><div class="candidate-name">{{ candidateName || 'Guest' }}</div></div></div></nav>
+        <div class="main-grid">
+          <aside class="rounds-sidebar"><div class="rounds-title">Assessment Rounds</div><div class="rounds-list"><div class="round-item" *ngFor="let round of allRounds; let i = index" (click)="goToRound(round)" [class.current]="isRoundCurrent(i)" [class.completed]="isRoundCompleted(i)"><div class="round-status"><span class="round-number">{{ i + 1 }}</span></div><div class="round-details"><div class="round-name">Round {{ i + 1 }} - {{ round.label }}</div><div class="round-info">{{ round.question_count }} Qs · {{ round.duration }}</div></div></div></div></aside>
+          <section class="content-area">
+            <div class="content-header"><h2>{{ currentRoundType === 'ai_interview' ? 'Interview in Progress' : 'Assessment in Progress' }}</h2></div>
+            <div class="round-status-card"><div class="round-label">{{ currentRound?.label }}</div><div class="round-meta"><span>{{ roundQuestions.length ? 'Q' + (currentQuestionIndex + 1) + ' of ' + roundQuestions.length : 'No questions' }}</span><span class="small-timer">{{ formatTime(roundTimeLeft) }}</span></div></div>
+            <div class="question-card" *ngIf="roundQuestions.length"><div class="question-title">{{ roundQuestions[currentQuestionIndex]?.question || roundQuestions[currentQuestionIndex]?.question_text }}</div><div class="question-body"><ng-container *ngIf="currentRoundType === 'aptitude'"><ul class="options-list"><li *ngFor="let option of roundQuestions[currentQuestionIndex]?.options"><label class="radio-option"><input type="radio" name="option-{{currentQuestionIndex}}" [value]="option" (change)="selectOption(option)" [checked]="currentAnswer === option" /><span class="radio-mark"></span><span class="option-text">{{ option }}</span></label></li></ul></ng-container><ng-container *ngIf="currentRoundType !== 'aptitude'"><p class="question-description">{{ roundQuestions[currentQuestionIndex]?.question }}</p><textarea rows="6" [(ngModel)]="currentAnswer" placeholder="Write your answer here..."></textarea></ng-container></div></div>
+            <div class="question-actions"><button class="btn btn-ghost" (click)="previousQuestion()" [disabled]="currentQuestionIndex === 0">Previous</button><button class="btn btn-primary" (click)="nextQuestion()" [disabled]="!currentAnswer">Next</button></div>
+          </section>
+        </div>
+      </div>
+
+      <!-- ENDED -->
+      <div class="center-card" *ngIf="isEnded"><div class="brand-logo">Dhanush <span>AI</span></div><div class="ended-icon">✅</div><h2>Interview Complete!</h2><p class="ended-text">Well done, <strong>{{ candidateName }}</strong>. Your interview has been submitted successfully.</p></div>
+
+      <!-- ERROR -->
+      <div class="center-card" *ngIf="isError"><div class="brand-logo">Dhanush <span>AI</span></div><div class="ended-icon">❌</div><h2>Connection Error</h2><p class="ended-text">{{ errorMessage }}</p><button class="start-btn" (click)="state = 'idle'">Try Again</button></div>
+
+    </ng-container>
+
+    <!-- LOGIN MODAL -->
+    <div class="modal-overlay" *ngIf="showLoginModal" (click)="closeLoginModal()">
+      <div class="login-modal" (click)="$event.stopPropagation()">
+        <button class="modal-close" (click)="closeLoginModal()">✕</button>
+        <div class="modal-header"><div class="modal-icon">🔐</div><h2>Candidate Login</h2><p>Use the credentials sent to your email to access your assessment.</p></div>
+        <div class="form-group"><label for="c-username">User ID</label><input id="c-username" type="text" [(ngModel)]="loginUsername" placeholder="Enter your login ID" autocomplete="username" (keyup.enter)="candidateLogin()" /></div>
+        <div class="form-group"><label for="c-password">Password</label><input id="c-password" type="password" [(ngModel)]="loginPassword" placeholder="Enter your password" autocomplete="current-password" (keyup.enter)="candidateLogin()" /></div>
+        <div class="login-error" *ngIf="loginError">⚠ {{ loginError }}</div>
+        <button class="login-btn" (click)="candidateLogin()" [disabled]="loginLoading || !loginUsername.trim() || !loginPassword.trim()">{{ loginLoading ? 'Signing in…' : 'Sign In & Continue →' }}</button>
+      </div>
+    </div>
+
+    <!-- Confirm end dialog -->
+    <div class="confirm-overlay" *ngIf="showConfirmEnd">
+      <div class="confirm-dialog">
+        <h3>End Interview?</h3>
+        <p>Are you sure you want to end the interview? This action cannot be undone.</p>
+        <div class="confirm-actions">
+          <button class="btn-cancel" (click)="showConfirmEnd = false">Continue Interview</button>
+          <button class="btn-confirm-end" (click)="endInterview()">Yes, End Interview</button>
+        </div>
+      </div>
+    </div>
+
+  </div>

@@ -1,0 +1,456 @@
+<div class="creator-page">
+
+  <!-- ══ Sidebar ══ -->
+  <aside class="creator-sidebar">
+    <div class="sidebar-brand">Dhanush <span>AI</span></div>
+    <nav class="sidebar-nav">
+
+      <div class="nav-item" [class.active]="step==='info'" (click)="step='info'">
+        <span class="nav-icon">📋</span>
+        <div class="nav-label">
+          <span class="nav-title">Drive Info</span>
+          <span class="nav-sub">Job details</span>
+        </div>
+        <span class="nav-status done" *ngIf="infoValid()">✓</span>
+      </div>
+
+      <div class="nav-connector"></div>
+
+      <div class="nav-item" [class.active]="step==='aptitude'" [class.locked]="!infoValid()"
+           (click)="infoValid() && (step='aptitude')">
+        <span class="nav-badge apt">R1</span>
+        <div class="nav-label">
+          <span class="nav-title">Aptitude</span>
+          <span class="nav-sub">MCQ from PDF</span>
+        </div>
+        <span class="nav-status done" *ngIf="aptDone">✓</span>
+      </div>
+
+      <div class="nav-connector"></div>
+
+      <div class="nav-item" [class.active]="step==='coding'" [class.locked]="!infoValid()"
+           (click)="infoValid() && (step='coding')">
+        <span class="nav-badge code">R2</span>
+        <div class="nav-label">
+          <span class="nav-title">Coding</span>
+          <span class="nav-sub">Technical problems</span>
+        </div>
+        <span class="nav-status done" *ngIf="codingDone && codingQuestions.length">✓</span>
+      </div>
+
+      <div class="nav-connector"></div>
+
+      <div class="nav-item" [class.active]="step==='ai'" [class.locked]="!infoValid()"
+           (click)="infoValid() && (step='ai')">
+        <span class="nav-badge ai">R3</span>
+        <div class="nav-label">
+          <span class="nav-title">AI Interview</span>
+          <span class="nav-sub">Voice assessment</span>
+        </div>
+      </div>
+
+    </nav>
+  </aside>
+
+  <!-- ══ Main ══ -->
+  <main class="creator-main">
+
+    <!-- Top bar -->
+    <div class="creator-topbar">
+      <span class="topbar-title">
+        <ng-container *ngIf="step==='info'">Create Interview Drive</ng-container>
+        <ng-container *ngIf="step==='aptitude'">Round 1 – Aptitude Test</ng-container>
+        <ng-container *ngIf="step==='coding'">Round 2 – Coding Test</ng-container>
+        <ng-container *ngIf="step==='ai'">Round 3 – AI Voice Interview</ng-container>
+      </span>
+      <span class="topbar-step" *ngIf="info.interviewName">{{ info.interviewName }}</span>
+    </div>
+
+    <div class="creator-body">
+
+      <!-- ════ STEP 0 – DRIVE INFO ════ -->
+      <ng-container *ngIf="step==='info'">
+
+        <!-- Metadata card -->
+        <div class="section-card">
+          <div class="section-card-header">
+            <div class="section-icon si-info">📋</div>
+            <h2>Drive Metadata</h2>
+          </div>
+          <div class="section-card-body">
+            <div class="meta-grid">
+              <div class="field-group">
+                <label>Interview / Drive Name <span class="req">*</span></label>
+                <input [(ngModel)]="info.interviewName" placeholder="e.g. Software Engineer – Batch 2025" />
+                <span class="field-hint">Used across all rounds and in candidate emails.</span>
+              </div>
+              <div class="field-group">
+                <label>Job Role / Position <span class="req">*</span></label>
+                <input [(ngModel)]="info.jobRole" placeholder="e.g. Software Engineer" />
+              </div>
+              <div class="field-group">
+                <label>Objective <span class="optional">(optional)</span></label>
+                <input [(ngModel)]="info.objective" placeholder="What should this drive assess?" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Job description card -->
+        <div class="section-card">
+          <div class="section-card-header">
+            <div class="section-icon si-info">📝</div>
+            <h2>Job Description</h2>
+          </div>
+          <div class="section-card-body">
+            <div class="field-group">
+              <label>Paste the full job description <span class="optional">(used by AI round)</span></label>
+              <textarea [(ngModel)]="info.jobDescription" rows="8"
+                placeholder="Paste the full job description here. The AI round will use this to generate interview questions..."></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="panel-footer">
+          <button class="btn-primary-lg" (click)="proceedToRounds()" [disabled]="!infoValid()">
+            Continue to Round Setup →
+          </button>
+          <p class="footer-note" *ngIf="!infoValid()">Interview name and job role are required.</p>
+        </div>
+
+      </ng-container>
+
+      <!-- ════ ROUND 1 – APTITUDE ════ -->
+      <ng-container *ngIf="step==='aptitude'">
+
+        <!-- Round config -->
+        <div class="section-card">
+          <div class="section-card-header">
+            <div class="section-icon si-apt">⚙️</div>
+            <h2>Round Configuration</h2>
+          </div>
+          <div class="section-card-body">
+            <div class="meta-grid cols-3">
+              <div class="field-group">
+                <label>Duration</label>
+                <select [(ngModel)]="aptDuration">
+                  <option value="15 minutes">15 minutes</option>
+                  <option value="20 minutes">20 minutes</option>
+                  <option value="30 minutes">30 minutes</option>
+                  <option value="45 minutes">45 minutes</option>
+                  <option value="60 minutes">60 minutes</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PDF upload / results -->
+        <div class="section-card">
+          <div class="section-card-header">
+            <div class="section-icon si-apt">📄</div>
+            <h2>PDF Upload &amp; Question Generation</h2>
+          </div>
+
+          <ng-container *ngIf="aptDone; else aptUploadTpl">
+            <div class="section-card-body">
+              <div class="success-strip">✅ {{ aptQuestions.length }} aptitude questions generated and saved.</div>
+              <div class="q-list">
+                <div class="q-row" *ngFor="let q of aptQuestions; let i = index">
+                  <div class="q-num apt-n">Q{{ i+1 }}</div>
+                  <div class="q-body">
+                    <p class="q-text">{{ q.question }}</p>
+                    <div class="opts-grid">
+                      <span class="opt-tag" *ngFor="let opt of q.options"
+                        [class.correct]="opt.startsWith(q.correct_answer + '.')">{{ opt }}</span>
+                    </div>
+                    <p class="q-explain" *ngIf="q.explanation">💡 {{ q.explanation }}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="panel-footer">
+              <button class="btn-ghost-sm" (click)="aptDone=false; aptFile=null; aptQuestions=[]">↺ Re-upload</button>
+              <button class="btn-primary-lg" (click)="step='coding'">Next: Coding Round →</button>
+            </div>
+          </ng-container>
+
+          <ng-template #aptUploadTpl>
+            <div class="section-card-body">
+              <div class="drop-zone" [class.drag-active]="aptDragOver"
+                   (dragover)="$event.preventDefault(); aptDragOver=true"
+                   (dragleave)="aptDragOver=false"
+                   (drop)="onAptFileDrop($event)"
+                   (click)="aptInput.click()">
+                <input #aptInput type="file" accept=".pdf" hidden (change)="onAptFileSelect($event)" />
+                <div class="drop-emoji">{{ aptFile ? '📄' : '📁' }}</div>
+                <p class="drop-main" [class.file-chosen]="aptFile">
+                  {{ aptFile ? aptFile.name : 'Drag & drop your PDF, or click to browse' }}
+                </p>
+                <p class="drop-note">PDF only — syllabus, JD, reference material</p>
+              </div>
+              <div class="error-bar" *ngIf="aptError">⚠ {{ aptError }}</div>
+            </div>
+            <div class="panel-footer">
+              <button class="btn-primary-lg apt-btn" (click)="uploadAptitudePdf()" [disabled]="aptLoading || !aptFile">
+                <ng-container *ngIf="!aptLoading">🚀 Generate Questions from PDF</ng-container>
+                <ng-container *ngIf="aptLoading"><span class="spin-inline"></span> Analysing PDF...</ng-container>
+              </button>
+              <button class="btn-ghost-sm" (click)="step='coding'">Skip →</button>
+            </div>
+          </ng-template>
+        </div>
+
+      </ng-container>
+
+      <!-- ════ ROUND 2 – CODING ════ -->
+      <ng-container *ngIf="step==='coding'">
+
+        <!-- Config -->
+        <div class="section-card">
+          <div class="section-card-header">
+            <div class="section-icon si-code">⚙️</div>
+            <h2>Round Configuration</h2>
+          </div>
+          <div class="section-card-body">
+            <div class="meta-grid cols-3">
+              <div class="field-group">
+                <label>Duration</label>
+                <select [(ngModel)]="codingDuration">
+                  <option value="30 minutes">30 minutes</option>
+                  <option value="45 minutes">45 minutes</option>
+                  <option value="60 minutes">60 minutes</option>
+                  <option value="90 minutes">90 minutes</option>
+                  <option value="120 minutes">120 minutes</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Questions -->
+        <div class="section-card">
+          <div class="section-card-header">
+            <div class="section-icon si-code">💻</div>
+            <h2>Coding Problems</h2>
+          </div>
+
+          <!-- Not initialised -->
+          <ng-container *ngIf="!codingDone">
+            <div class="section-card-body">
+              <div class="init-block">
+                <p>Initialise the coding round to start adding problems.</p>
+                <div class="error-bar" *ngIf="codingError">⚠ {{ codingError }}</div>
+                <div class="form-actions" style="justify-content: center;">
+                  <button class="btn-primary-lg code-btn" (click)="createCodingRound()" [disabled]="codingCreating">
+                    {{ codingCreating ? 'Creating…' : '+ Initialise Coding Round' }}
+                  </button>
+                  <button class="btn-ghost-sm" (click)="step='ai'">Skip Round →</button>
+                </div>
+              </div>
+            </div>
+          </ng-container>
+
+          <!-- Initialised -->
+          <ng-container *ngIf="codingDone">
+            <div class="section-card-body">
+
+              <!-- Saved questions -->
+              <div class="q-list" *ngIf="codingQuestions.length">
+                <div class="q-row" *ngFor="let q of codingQuestions; let i = index">
+                  <div class="q-num code-n">Q{{ i+1 }}</div>
+                  <div class="q-body">
+                    <div class="code-meta-row">
+                      <span class="diff-tag" [class]="'diff-' + q.difficulty">{{ q.difficulty }}</span>
+                      <span class="lang-tag" *ngIf="q.expected_language">{{ q.expected_language }}</span>
+                    </div>
+                    <p class="q-text">{{ q.question }}</p>
+                    <div class="tc-list" *ngIf="q.test_cases?.length">
+                      <div class="tc-item" *ngFor="let tc of q.test_cases">
+                        <span class="tc-chip tc-in">In: {{ tc.input }}</span>
+                        <span>→</span>
+                        <span class="tc-chip tc-out">{{ tc.output }}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div class="empty-qs" *ngIf="!codingQuestions.length && !showAddForm">
+                <span>💻</span>
+                <p>No problems yet. Add your first coding question.</p>
+              </div>
+
+              <!-- Add form -->
+              <div class="add-q-card" *ngIf="showAddForm">
+                <div class="add-q-header">
+                  <h3>Add Coding Problem</h3>
+                  <button class="icon-close" (click)="showAddForm=false">✕</button>
+                </div>
+
+                <div class="field-group">
+                  <label>Problem Statement <span class="req">*</span></label>
+                  <textarea [(ngModel)]="newCodingQ.question" rows="4" placeholder="Describe the coding problem clearly..."></textarea>
+                </div>
+
+                <div class="meta-grid cols-3">
+                  <div class="field-group">
+                    <label>Difficulty</label>
+                    <select [(ngModel)]="newCodingQ.difficulty">
+                      <option value="easy">Easy</option>
+                      <option value="medium">Medium</option>
+                      <option value="hard">Hard</option>
+                    </select>
+                  </div>
+                  <div class="field-group">
+                    <label>Expected Language <span class="optional">(optional)</span></label>
+                    <input [(ngModel)]="newCodingQ.expected_language" placeholder="python, java, any..." />
+                  </div>
+                </div>
+
+                <div class="field-group">
+                  <label>Explanation / Hint <span class="optional">(optional)</span></label>
+                  <input [(ngModel)]="newCodingQ.explanation" placeholder="Expected approach or hint..." />
+                </div>
+
+                <div class="tc-builder">
+                  <p class="tc-builder-label">Test Cases <span class="optional">(optional)</span></p>
+                  <div class="saved-tcs" *ngIf="newCodingQ.test_cases.length">
+                    <div class="saved-tc-row" *ngFor="let tc of newCodingQ.test_cases; let ti = index">
+                      <span class="tc-chip tc-in">{{ tc.input }}</span>
+                      <span>→</span>
+                      <span class="tc-chip tc-out">{{ tc.output }}</span>
+                      <button class="tc-remove" (click)="removeTestCase(ti)">✕</button>
+                    </div>
+                  </div>
+                  <div class="tc-add-row">
+                    <input [(ngModel)]="newTestCase.input" placeholder="Input" class="tc-input" />
+                    <input [(ngModel)]="newTestCase.output" placeholder="Expected Output" class="tc-input" />
+                    <button class="btn-add-tc" (click)="addTestCase()" [disabled]="!newTestCase.input.trim()">+ Add</button>
+                  </div>
+                </div>
+
+                <div class="error-bar" *ngIf="addQError">⚠ {{ addQError }}</div>
+
+                <div class="form-actions">
+                  <button class="btn-ghost-sm" (click)="showAddForm=false">Cancel</button>
+                  <button class="btn-primary-lg code-btn" (click)="addCodingQuestion()"
+                    [disabled]="addingQ || !newCodingQ.question.trim()">
+                    {{ addingQ ? 'Saving…' : '✓ Save Question' }}
+                  </button>
+                </div>
+              </div>
+
+            </div>
+
+            <div class="panel-footer" *ngIf="!showAddForm">
+              <button class="btn-ghost-sm" (click)="showAddForm=true">+ Add Problem</button>
+              <button class="btn-primary-lg" (click)="step='ai'">Next: AI Round →</button>
+            </div>
+          </ng-container>
+
+        </div>
+
+      </ng-container>
+
+      <!-- ════ ROUND 3 – AI INTERVIEW ════ -->
+      <ng-container *ngIf="step==='ai'">
+
+        <!-- Config -->
+        <div class="section-card">
+          <div class="section-card-header">
+            <div class="section-icon si-ai">⚙️</div>
+            <h2>Round Configuration</h2>
+          </div>
+          <div class="section-card-body">
+            <div class="meta-grid cols-3">
+              <div class="field-group">
+                <label>Duration</label>
+                <select [(ngModel)]="aiDuration">
+                  <option value="10 minutes">10 minutes</option>
+                  <option value="15 minutes">15 minutes</option>
+                  <option value="20 minutes">20 minutes</option>
+                  <option value="30 minutes">30 minutes</option>
+                </select>
+              </div>
+              <div class="field-group">
+                <label>No. of Questions</label>
+                <input type="number" [(ngModel)]="aiQuestionCount" min="1" max="15" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Generate / Review -->
+        <div class="section-card">
+          <div class="section-card-header">
+            <div class="section-icon si-ai">🤖</div>
+            <h2>{{ aiStep === 'form' ? 'Generate Questions' : 'Review Questions' }}</h2>
+          </div>
+
+          <ng-container *ngIf="aiStep==='form'">
+            <div class="section-card-body">
+              <div class="ai-context-bar">
+                <span class="ctx-chip">{{ info.jobRole }}</span>
+                <span class="ctx-chip">{{ aiDuration }}</span>
+                <span class="ctx-chip">{{ aiQuestionCount }} Questions</span>
+                <span class="ctx-chip" *ngIf="info.jobDescription">JD ✓</span>
+              </div>
+              <div class="error-bar" *ngIf="aiError">⚠ {{ aiError }}</div>
+            </div>
+            <div class="panel-footer">
+              <button class="btn-primary-lg ai-btn" (click)="generateAiQuestions()"
+                [disabled]="aiGenerating || !info.jobDescription.trim()">
+                <ng-container *ngIf="!aiGenerating">✨ Generate AI Questions</ng-container>
+                <ng-container *ngIf="aiGenerating"><span class="spin-inline"></span> Generating...</ng-container>
+              </button>
+              <p class="footer-note" *ngIf="!info.jobDescription.trim()">Add a job description in Drive Info first.</p>
+            </div>
+          </ng-container>
+
+          <ng-container *ngIf="aiStep==='review'">
+            <div class="section-card-body">
+              <p class="section-sub-heading">Edit questions if needed</p>
+              <div class="q-edit-list">
+                <div class="q-edit-row" *ngFor="let q of aiQuestions; let i = index">
+                  <span class="q-edit-num">{{ i+1 }}</span>
+                  <input [(ngModel)]="q.question" class="q-edit-input" />
+                </div>
+              </div>
+            </div>
+
+            <!-- Interviewer section -->
+            <div class="section-card-header" style="border-top: 1px solid #f3f4f6;">
+              <div class="section-icon si-ai">🎙️</div>
+              <h2>Choose AI Interviewer</h2>
+            </div>
+            <div class="section-card-body">
+              <div class="iv-grid">
+                <div class="iv-card" *ngFor="let iv of interviewers"
+                     [class.iv-selected]="selectedInterviewer === iv.id"
+                     (click)="selectedInterviewer = iv.id">
+                  <div class="iv-avatar">{{ iv.name[0] }}</div>
+                  <div class="iv-info">
+                    <strong>{{ iv.name }}</strong>
+                    <p>{{ iv.description }}</p>
+                  </div>
+                </div>
+              </div>
+              <div class="error-bar" *ngIf="aiError" style="margin-top:14px">⚠ {{ aiError }}</div>
+            </div>
+
+            <div class="panel-footer">
+              <button class="btn-ghost-sm" (click)="aiStep='form'">← Back</button>
+              <button class="btn-primary-lg ai-btn" (click)="saveAiRound()" [disabled]="aiSaving">
+                {{ aiSaving ? 'Saving…' : '✓ Save AI Round & Finish' }}
+              </button>
+            </div>
+          </ng-container>
+
+        </div>
+
+      </ng-container>
+
+    </div><!-- /creator-body -->
+  </main>
+</div>

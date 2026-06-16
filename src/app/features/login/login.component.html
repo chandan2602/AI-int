@@ -1,0 +1,41 @@
+<div class="login-page">
+  <div class="login-card">
+    <div class="login-header">
+      <h1>Candidate Login</h1>
+      <p>Enter your username and password to access your assessment.</p>
+    </div>
+
+    <div class="form-group">
+      <label for="username">Username</label>
+      <input
+        id="username"
+        type="text"
+        [(ngModel)]="username"
+        autocomplete="username"
+        placeholder="Enter your login ID"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="password">Password</label>
+      <input
+        id="password"
+        type="password"
+        [(ngModel)]="password"
+        autocomplete="current-password"
+        placeholder="Enter your password"
+      />
+    </div>
+
+    <div class="status-message error" *ngIf="error">⚠ {{ error }}</div>
+    <div class="status-message success" *ngIf="successMessage">✅ {{ successMessage }}</div>
+
+    <button class="login-button" (click)="submit()" [disabled]="loading">
+      {{ loading ? 'Signing in…' : 'Sign In' }}
+    </button>
+
+    <p class="login-note">
+      Login credentials are provided by email. Use the link shown after successful login to start your interview.
+    </p>
+  </div>
+</div>

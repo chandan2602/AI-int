@@ -1,0 +1,8 @@
+<ng-container *ngIf="isCallRoute; else appLayout">
+  <router-outlet />
+</ng-container>
+
+<ng-template #appLayout>
+  <app-sidebar />
+  <router-outlet />
+</ng-template>
