@@ -21,7 +21,53 @@
         </div>
         <div class="right-panel">
           <div class="top-bar"><div class="top-bar-left"><h2 class="rules-title">Before You Begin</h2></div><div class="top-bar-right"><div class="signed-in-badge" *ngIf="isAuthenticated"><span class="badge-dot"></span><span>{{ candidateName }}</span></div><button class="signin-top-btn" *ngIf="!isAuthenticated" (click)="openLoginModal()">🔐 Sign In</button></div></div>
-          <div class="form-section"><ng-container *ngIf="isAuthenticated; else notSignedIn"><h3>Your details</h3><div class="form-row"><div class="form-group"><label>Full Name</label><div class="prefilled-field">{{ candidateName }}</div></div><div class="form-group"><label>Email Address</label><div class="prefilled-field">{{ candidateEmail }}</div></div></div></ng-container><ng-template #notSignedIn><div class="signin-prompt"><span class="signin-prompt-icon">🔐</span><p>Please <button class="inline-link" (click)="openLoginModal()">sign in</button> with your credentials to enable the assessment.</p></div></ng-template><div class="consent-row"><input type="checkbox" id="consent" [(ngModel)]="consentChecked" [disabled]="!isAuthenticated" /><label for="consent">I understand this session is monitored and I agree to the interview guidelines stated above.</label></div><button class="start-btn" (click)="startInterview()" [disabled]="!isAuthenticated || !consentChecked">Start Interview</button></div>
+          
+          <div class="form-section">
+            <ng-container *ngIf="isAuthenticated; else notSignedIn">
+              <h3>Your details</h3>
+              <div class="form-row">
+                <div class="form-group"><label>Full Name</label><div class="prefilled-field">{{ candidateName }}</div></div>
+                <div class="form-group"><label>Email Address</label><div class="prefilled-field">{{ candidateEmail }}</div></div>
+              </div>
+            </ng-container>
+            <ng-template #notSignedIn>
+              <div class="signin-prompt"><span class="signin-prompt-icon">🔐</span><p>Please <button class="inline-link" (click)="openLoginModal()">sign in</button> with your credentials to enable the assessment.</p></div>
+            </ng-template>
+
+            <!-- New guidelines block -->
+            <div class="guidelines">
+              <div class="guideline-card do">
+                <div class="guideline-title">What to do</div>
+                <ul>
+                  <li>Stay focused and read each question carefully.</li>
+                  <li>Use a stable internet connection throughout the test.</li>
+                  <li>Keep your camera and microphone on if required.</li>
+                  <li>Use the provided interface — do not open new tabs or windows.</li>
+                </ul>
+              </div>
+              <div class="guideline-card dont">
+                <div class="guideline-title">What NOT to do</div>
+                <ul>
+                  <li>Do not change or minimize the test window during the assessment.</li>
+                  <li>Do not copy/paste answers from external sources.</li>
+                  <li>Avoid screen-sharing or using automated tools.</li>
+                  <li>Do not refresh the page unnecessarily.</li>
+                </ul>
+              </div>
+              <div class="guideline-card req">
+                <div class="guideline-title">Requirements</div>
+                <ul>
+                  <li>Stable high-speed internet (recommended ≥ 5 Mbps).</li>
+                  <li>Desktop or laptop with a working webcam and microphone.</li>
+                  <li>Modern browser (Chrome/Edge/Firefox) — keep it updated.</li>
+                  <li>Disable browser extensions that may interfere (ad blockers).</li>
+                </ul>
+              </div>
+            </div>
+
+            <div class="consent-row"><input type="checkbox" id="consent" [(ngModel)]="consentChecked" [disabled]="!isAuthenticated" /><label for="consent">I understand this session is monitored and I agree to the interview guidelines stated above.</label></div>
+            <button class="start-btn" (click)="startInterview()" [disabled]="!isAuthenticated || !consentChecked">Start Interview</button>
+          </div>
         </div>
       </div>
 
@@ -37,12 +83,95 @@
       <div class="layout active-layout" *ngIf="isActive">
         <nav class="top-nav"><div class="nav-left"><div class="brand-logo">Dhanush <span>AI</span></div></div><div class="nav-right"><div class="timer">{{ formatTime(roundTimeLeft) }}</div><div class="candidate-profile"><div class="avatar-placeholder">{{ candidateName ? (candidateName.charAt(0) | uppercase) : 'G' }}</div><div class="candidate-name">{{ candidateName || 'Guest' }}</div></div></div></nav>
         <div class="main-grid">
-          <aside class="rounds-sidebar"><div class="rounds-title">Assessment Rounds</div><div class="rounds-list"><div class="round-item" *ngFor="let round of allRounds; let i = index" (click)="goToRound(round)" [class.current]="isRoundCurrent(i)" [class.completed]="isRoundCompleted(i)"><div class="round-status"><span class="round-number">{{ i + 1 }}</span></div><div class="round-details"><div class="round-name">Round {{ i + 1 }} - {{ round.label }}</div><div class="round-info">{{ round.question_count }} Qs · {{ round.duration }}</div></div></div></div></aside>
+          <aside class="rounds-sidebar">
+            <div class="rounds-title">Assessment Rounds</div>
+            <div class="rounds-list">
+              <div class="round-item" *ngFor="let round of allRounds; let i = index" (click)="goToRound(round)" [class.current]="isRoundCurrent(i)" [class.completed]="isRoundCompleted(i)">
+                <div class="round-status"><span class="round-number">{{ i + 1 }}</span></div>
+                <div class="round-details"><div class="round-name">Round {{ i + 1 }} - {{ round.label }}</div><div class="round-info">{{ round.question_count }} Qs · {{ round.duration }}</div></div>
+              </div>
+            </div>
+
+            <div class="sidebar-fraud-wrap">
+              <div class="fraud-banner" *ngIf="fraudEvents.length">
+                <div class="fraud-item" *ngFor="let f of fraudEvents">
+                  ⚠ Suspicious activity detected: {{ f.type }} <span *ngIf="f.detail?.count">(x{{ f.detail.count }})</span>
+                </div>
+              </div>
+            </div>
+          </aside>
           <section class="content-area">
             <div class="content-header"><h2>{{ currentRoundType === 'ai_interview' ? 'Interview in Progress' : 'Assessment in Progress' }}</h2></div>
-            <div class="round-status-card"><div class="round-label">{{ currentRound?.label }}</div><div class="round-meta"><span>{{ roundQuestions.length ? 'Q' + (currentQuestionIndex + 1) + ' of ' + roundQuestions.length : 'No questions' }}</span><span class="small-timer">{{ formatTime(roundTimeLeft) }}</span></div></div>
-            <div class="question-card" *ngIf="roundQuestions.length"><div class="question-title">{{ roundQuestions[currentQuestionIndex]?.question || roundQuestions[currentQuestionIndex]?.question_text }}</div><div class="question-body"><ng-container *ngIf="currentRoundType === 'aptitude'"><ul class="options-list"><li *ngFor="let option of roundQuestions[currentQuestionIndex]?.options"><label class="radio-option"><input type="radio" name="option-{{currentQuestionIndex}}" [value]="option" (change)="selectOption(option)" [checked]="currentAnswer === option" /><span class="radio-mark"></span><span class="option-text">{{ option }}</span></label></li></ul></ng-container><ng-container *ngIf="currentRoundType !== 'aptitude'"><p class="question-description">{{ roundQuestions[currentQuestionIndex]?.question }}</p><textarea rows="6" [(ngModel)]="currentAnswer" placeholder="Write your answer here..."></textarea></ng-container></div></div>
-            <div class="question-actions"><button class="btn btn-ghost" (click)="previousQuestion()" [disabled]="currentQuestionIndex === 0">Previous</button><button class="btn btn-primary" (click)="nextQuestion()" [disabled]="!currentAnswer">Next</button></div>
+            <div class="round-status-card"><div class="round-meta"><span>{{ roundQuestions.length ? 'Q' + (currentQuestionIndex + 1) + ' of ' + roundQuestions.length : 'No questions' }}</span></div></div>
+            <div class="question-card" *ngIf="roundQuestions.length">
+              <div class="question-title">{{ roundQuestions[currentQuestionIndex]?.question || roundQuestions[currentQuestionIndex]?.question_text }}</div>
+              <div class="question-body">
+                <ng-container *ngIf="currentRoundType === 'aptitude'">
+                  <ul class="options-list">
+                    <li *ngFor="let option of roundQuestions[currentQuestionIndex]?.options">
+                      <label class="radio-option">
+                        <input type="radio" name="option-{{currentQuestionIndex}}" [value]="option" (change)="selectOption(option)" [checked]="currentAnswer === option" />
+                        <span class="radio-mark"></span>
+                        <span class="option-text">{{ option }}</span>
+                      </label>
+                    </li>
+                  </ul>
+                </ng-container>
+                <ng-container *ngIf="currentRoundType === 'ai_interview'">
+                  <p class="question-description">{{ roundQuestions[currentQuestionIndex]?.question }}</p>
+                  <div class="ai-note">
+                    The AI interviewer will read this question aloud. Please answer verbally; no text input is required.
+                  </div>
+                </ng-container>
+                <ng-container *ngIf="currentRoundType !== 'aptitude' && currentRoundType !== 'coding' && currentRoundType !== 'ai_interview'">
+                  <p class="question-description">{{ roundQuestions[currentQuestionIndex]?.question }}</p>
+                  <textarea rows="6" [(ngModel)]="currentAnswer" placeholder="Write your answer here..."></textarea>
+                </ng-container>
+                <ng-container *ngIf="currentRoundType === 'coding'">
+                  <div class="code-editor-wrapper">
+                    <div class="editor-header">
+                      <div class="language-selector">
+                        <label>Language</label>
+                        <select [(ngModel)]="codeLanguage" (change)="changeLanguage(codeLanguage)" class="language-select">
+                          <option value="python">Python</option>
+                          <option value="java">Java</option>
+                          <option value="cpp">C++</option>
+                          <option value="javascript">JavaScript</option>
+                        </select>
+                      </div>
+                      <div class="editor-actions">
+                        <button class="btn btn-small btn-run" (click)="runCode()" [disabled]="isRunning">
+                          {{ isRunning ? 'Running...' : 'Run Code' }}
+                        </button>
+                      </div>
+                    </div>
+                    <textarea rows="18" class="code-textarea" [(ngModel)]="currentAnswer" placeholder="Write your code here..."></textarea>
+                    <div class="execution-panel" *ngIf="executionOutput || executionError">
+                      <div class="panel-header">Execution Output</div>
+                      <div class="panel-content">
+                        <pre *ngIf="executionOutput" class="output-success">{{ executionOutput }}</pre>
+                        <pre *ngIf="executionError" class="output-error">{{ executionError }}</pre>
+                      </div>
+                    </div>
+                  </div>
+                </ng-container>
+              </div>
+            </div>
+
+            <div class="question-actions">
+              <div class="qa-left">
+                <button class="btn btn-ghost" (click)="previousQuestion()" [disabled]="currentQuestionIndex === 0">Previous</button>
+              </div>
+              <div class="qa-right">
+                <ng-container *ngIf="currentRoundType === 'coding'">
+                  <button class="btn btn-primary" (click)="submitCode()" [disabled]="!currentAnswer">Submit Solution</button>
+                </ng-container>
+                <ng-container *ngIf="currentRoundType !== 'coding'">
+                  <button class="btn btn-primary" (click)="nextQuestion()" [disabled]="!currentAnswer">Next</button>
+                </ng-container>
+                <button class="btn btn-danger end-exam" (click)="confirmEnd()" [disabled]="!isEnded">End Exam</button>
+              </div>
+            </div>
           </section>
         </div>
       </div>

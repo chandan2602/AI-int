@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -9,6 +9,8 @@ import { AuthService } from '../../core/services/auth.service';
 import { AptitudeService } from '../../core/services/aptitude.service';
 import { Interview } from '../../core/models/interview.model';
 import { firstValueFrom } from 'rxjs';
+import { MonacoEditorModule } from 'ngx-monaco-editor-v2';
+import { ProctoringService, ProctorEvent } from '../../core/services/proctoring.service';
 
 export type CallState = 'idle' | 'loading' | 'active' | 'ended' | 'error';
 export type RoundType = 'aptitude' | 'coding' | 'ai_interview';
@@ -26,7 +28,7 @@ interface RoundInfo {
 @Component({
   selector: 'app-call',
   standalone: true,
-  imports: [CommonModule, FormsModule],
+  imports: [CommonModule, FormsModule, MonacoEditorModule],
   templateUrl: './call.component.html',
   styleUrl: './call.component.css',
 })
@@ -59,12 +61,35 @@ export class CallComponent implements OnInit, OnDestroy {
 
   private callId?: string;
   private retellClient: any;
+  fraudEvents: ProctorEvent[] = [];
+  private fraudSub: any;
 
   // Login state
   loginUsername = '';
   loginPassword = '';
   loginLoading = false;
   loginError = '';
+
+  // Code editor state (for coding round)
+  editorOptions: any = {
+    theme: 'vs-dark',
+    language: 'python',
+    fontSize: 14,
+    minimap: { enabled: false },
+    lineNumbers: 'on',
+    scrollBeyondLastLine: false,
+    automaticLayout: true,
+  };
+  codeLanguage: 'python' | 'java' | 'cpp' | 'javascript' = 'python';
+  codeTemplates: Record<string, string> = {
+    python: `# Write your Python code here\n\ndef solve():\n    # Your solution\n    pass\n\nif __name__ == "__main__":\n    solve()`,
+    java: `public class Solution {\n    public static void main(String[] args) {\n        // Your solution\n    }\n}`,
+    cpp: `#include <iostream>\nusing namespace std;\n\nint main() {\n    // Your solution\n    return 0;\n}`,
+    javascript: `// Write your JavaScript code here\n\nfunction solve() {\n    // Your solution\n}\n\nsolve();`,
+  };
+  isRunning = false;
+  executionOutput = '';
+  executionError = '';
 
   constructor(
     private route: ActivatedRoute,
@@ -74,6 +99,8 @@ export class CallComponent implements OnInit, OnDestroy {
     private callService: CallService,
     private authService: AuthService,
     private aptitudeService: AptitudeService,
+    private proctoringService: ProctoringService,
+    private ngZone: NgZone,
   ) {}
 
   // Template-friendly boolean getters to avoid string literal comparisons in templates
@@ -94,6 +121,17 @@ export class CallComponent implements OnInit, OnDestroy {
       this.loadInterview(id);
     });
     document.addEventListener('visibilitychange', this.onVisibilityChange);
+
+    // Subscribe to proctoring fraud events
+    this.fraudSub = this.proctoringService.fraudDetected$.subscribe(ev => {
+      this.ngZone.run(() => {
+        this.fraudEvents.push(ev);
+        // auto-remove after 8 seconds
+        setTimeout(() => {
+          this.fraudEvents = this.fraudEvents.filter(f => f.timestamp !== ev.timestamp);
+        }, 8000);
+      });
+    });
   }
 
   private loadInterview(id: string): void {
@@ -109,6 +147,12 @@ export class CallComponent implements OnInit, OnDestroy {
         this.state = wasActive ? 'active' : 'idle';
         if (wasActive) {
           this.startRoundTimer();
+          // If transitioning to AI interview round, auto-start the call
+          if (this.currentRoundType === 'ai_interview') {
+            setTimeout(() => this.startNewAICall(), 500);
+          } else {
+            this.proctoringService.initializeProctoring();
+          }
         }
         this.loadingInterview = false;
       },
@@ -164,7 +208,7 @@ export class CallComponent implements OnInit, OnDestroy {
     const order: RoundType[] = ['aptitude', 'coding', 'ai_interview'];
     
     for (const key of order) {
-      const detail = res.rounds[key];
+      const detail = res.rounds[key] || (key === 'ai_interview' ? res.rounds.other : undefined);
       if (detail) {
         this.allRounds.push({
           key,
@@ -177,7 +221,22 @@ export class CallComponent implements OnInit, OnDestroy {
         });
       }
     }
-    
+    // Ensure all three rounds appear in the sidebar. If a round is missing from the drive
+    // response, add a disabled placeholder (no interview_id) so the UI still shows it.
+    for (const key of order) {
+      if (!this.allRounds.find(r => r.key === key)) {
+        this.allRounds.push({
+          key,
+          label: this.getRoundLabel(key),
+          duration: '–',
+          question_count: 0,
+          interview_id: '',
+          name: this.getRoundLabel(key),
+          questions: [],
+        });
+      }
+    }
+
     this.updateCurrentRoundIndex();
   }
 
@@ -216,7 +275,7 @@ export class CallComponent implements OnInit, OnDestroy {
     this.roundQuestions = currentRound?.questions ?? [];
     this.currentQuestionIndex = 0;
     this.roundAnswers = new Array(this.roundQuestions.length).fill('');
-    this.currentAnswer = '';
+    this.currentAnswer = currentRound?.key === 'coding' ? this.codeTemplates[this.codeLanguage] : '';
     this.roundTimeLeft = this.parseDuration(currentRound?.duration || '0 minutes');
     this.clearRoundTimer();
   }
@@ -261,7 +320,13 @@ export class CallComponent implements OnInit, OnDestroy {
   }
 
   goToRound(round: RoundInfo): void {
+    // Only allow navigation to rounds that have a valid interview id and which
+    // are not ahead of the current round.
+    if (!round.interview_id) return;
     if (this.allRounds.indexOf(round) <= this.currentRoundIndex) {
+      // Stop previous Retell call before navigating to new round
+      this.retellClient?.stopCall?.();
+      this.proctoringService.destroyProctoring();
       this.router.navigate(['/call', round.interview_id]);
     }
   }
@@ -269,6 +334,8 @@ export class CallComponent implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
     this.retellClient?.stopCall?.();
+    this.proctoringService.destroyProctoring();
+    try { this.fraudSub?.unsubscribe?.(); } catch (e) {}
   }
 
   openLoginModal(): void {
@@ -341,6 +408,7 @@ export class CallComponent implements OnInit, OnDestroy {
             await this.retellClient.startCall({ accessToken: callResponse.access_token });
             this.state = 'active';
             this.startRoundTimer();
+            this.proctoringService.initializeProctoring();
           } catch {
             this.errorMessage = 'Failed to start call. Please allow microphone access and try again.';
             this.state = 'error';
@@ -357,6 +425,62 @@ export class CallComponent implements OnInit, OnDestroy {
     // Non-AI rounds should enter the active assessment state
     this.state = 'active';
     this.startRoundTimer();
+    this.proctoringService.initializeProctoring();
+  }
+
+  private async startNewAICall(): Promise<void> {
+    // Called when transitioning to an AI interview round
+    if (!this.interview) return;
+
+    // Create a new response entry for this round
+    try {
+      const response = await firstValueFrom(this.responseService.create({
+        interview_id: this.interview.id,
+        name: this.candidateName,
+        email: this.candidateEmail,
+        is_ended: false,
+      }));
+      this.callId = response.id.toString();
+    } catch (err) {
+      console.error('Failed to create response entry:', err);
+      return;
+    }
+
+    this.state = 'loading';
+
+    this.callService.registerCall({
+      interviewer_id: this.interview.interviewer_id as number,
+      dynamic_data: {
+        candidate_name: this.candidateName,
+        interview_name: this.interview.name,
+        questions: this.interview.questions?.map(q => q.question).join('; ') || '',
+      },
+    }).subscribe({
+      next: async (callResponse) => {
+        this.callId = callResponse.call_id;
+        try {
+          const { RetellWebClient } = await import('retell-client-js-sdk');
+          this.retellClient = new RetellWebClient();
+          this.retellClient.on('call_ended', () => this.onCallEnded());
+          this.retellClient.on('error', (err: any) => {
+            this.errorMessage = err?.message || 'Call error occurred.';
+            this.state = 'error';
+          });
+          await this.retellClient.startCall({ accessToken: callResponse.access_token });
+          this.state = 'active';
+          this.proctoringService.initializeProctoring();
+        } catch (err) {
+          console.error('Failed to start Retell call:', err);
+          this.errorMessage = 'Failed to start call. Please try again.';
+          this.state = 'error';
+        }
+      },
+      error: (err) => {
+        console.error('Failed to register call:', err);
+        this.errorMessage = 'Failed to connect to the interviewer. Please try again.';
+        this.state = 'error';
+      },
+    });
   }
 
   private async completeRoundAndProceed(): Promise<void> {
@@ -371,7 +495,7 @@ export class CallComponent implements OnInit, OnDestroy {
     this.roundAnswers[this.currentQuestionIndex] = this.currentAnswer;
     if (this.currentQuestionIndex < this.roundQuestions.length - 1) {
       this.currentQuestionIndex += 1;
-      this.currentAnswer = this.roundAnswers[this.currentQuestionIndex] || '';
+      this.currentAnswer = this.roundAnswers[this.currentQuestionIndex] || (this.currentRoundType === 'coding' ? this.codeTemplates[this.codeLanguage] : '');
       return;
     }
     this.finishRound();
@@ -381,7 +505,7 @@ export class CallComponent implements OnInit, OnDestroy {
     if (this.currentQuestionIndex === 0) return;
     this.roundAnswers[this.currentQuestionIndex] = this.currentAnswer;
     this.currentQuestionIndex -= 1;
-    this.currentAnswer = this.roundAnswers[this.currentQuestionIndex] || '';
+    this.currentAnswer = this.roundAnswers[this.currentQuestionIndex] || (this.currentRoundType === 'coding' ? this.codeTemplates[this.codeLanguage] : '');
   }
 
   private finishRound(): void {
@@ -412,6 +536,7 @@ export class CallComponent implements OnInit, OnDestroy {
       }));
     }
     this.state = 'ended';
+    this.proctoringService.destroyProctoring();
     
     // After 3 seconds, check if there's a next round or show completion
     setTimeout(() => {
@@ -427,4 +552,52 @@ export class CallComponent implements OnInit, OnDestroy {
       this.tabSwitchCount++;
     }
   };
+
+  // Code editor methods for coding round
+  changeLanguage(language: 'python' | 'java' | 'cpp' | 'javascript'): void {
+    const previousTemplate = this.codeTemplates[this.codeLanguage];
+    this.codeLanguage = language;
+    this.editorOptions = { ...this.editorOptions, language };
+    if (!this.currentAnswer.trim() || this.currentAnswer === previousTemplate) {
+      this.currentAnswer = this.codeTemplates[language];
+    }
+  }
+
+  runCode(): void {
+    if (!this.currentAnswer.trim()) {
+      this.executionError = 'Please write some code before running.';
+      return;
+    }
+    
+    this.isRunning = true;
+    this.executionOutput = '';
+    this.executionError = '';
+
+    // Simulate code execution - in production, call your backend API
+    setTimeout(() => {
+      // This is a placeholder - replace with actual backend API call
+      this.executionOutput = 'Program executed successfully!\nOutput: Your code ran without errors.';
+      this.isRunning = false;
+    }, 1500);
+  }
+
+  submitCode(): void {
+    if (!this.currentAnswer.trim()) {
+      this.executionError = 'Please write some code before submitting.';
+      return;
+    }
+
+    // Save current code as answer and move to next question
+    this.roundAnswers[this.currentQuestionIndex] = this.currentAnswer;
+    
+    if (this.currentQuestionIndex < this.roundQuestions.length - 1) {
+      this.currentQuestionIndex += 1;
+      this.currentAnswer = this.roundAnswers[this.currentQuestionIndex] || this.codeTemplates[this.codeLanguage];
+      this.executionOutput = '';
+      this.executionError = '';
+      return;
+    }
+    
+    this.finishRound();
+  }
 }

@@ -1,65 +1,74 @@
 {
-  "hash": "9acb73ce",
-  "configHash": "32ee326d",
-  "lockfileHash": "40d68e53",
-  "browserHash": "7c041228",
+  "hash": "e006a0be",
+  "configHash": "f1f73bf2",
+  "lockfileHash": "deecae92",
+  "browserHash": "75fd6287",
   "optimized": {
     "@angular/common": {
       "src": "../../../../../node_modules/@angular/common/fesm2022/common.mjs",
       "file": "@angular_common.js",
-      "fileHash": "08aa6b52",
+      "fileHash": "35b08fca",
       "needsInterop": false
     },
     "@angular/common/http": {
       "src": "../../../../../node_modules/@angular/common/fesm2022/http.mjs",
       "file": "@angular_common_http.js",
-      "fileHash": "b32316cf",
+      "fileHash": "fb387ee1",
       "needsInterop": false
     },
     "@angular/core": {
       "src": "../../../../../node_modules/@angular/core/fesm2022/core.mjs",
       "file": "@angular_core.js",
-      "fileHash": "42000153",
+      "fileHash": "ebb9b5fb",
       "needsInterop": false
     },
     "@angular/forms": {
       "src": "../../../../../node_modules/@angular/forms/fesm2022/forms.mjs",
       "file": "@angular_forms.js",
-      "fileHash": "25540a03",
+      "fileHash": "cea58e44",
       "needsInterop": false
     },
     "@angular/platform-browser": {
       "src": "../../../../../node_modules/@angular/platform-browser/fesm2022/platform-browser.mjs",
       "file": "@angular_platform-browser.js",
-      "fileHash": "fe4a3709",
+      "fileHash": "e024cb23",
       "needsInterop": false
     },
     "@angular/router": {
       "src": "../../../../../node_modules/@angular/router/fesm2022/router.mjs",
       "file": "@angular_router.js",
-      "fileHash": "fd9e2866",
+      "fileHash": "d1a0cafb",
       "needsInterop": false
     },
     "retell-client-js-sdk": {
       "src": "../../../../../node_modules/retell-client-js-sdk/dist/index.m.js",
       "file": "retell-client-js-sdk.js",
-      "fileHash": "b0be5c83",
+      "fileHash": "639b6806",
       "needsInterop": false
     },
     "rxjs": {
       "src": "../../../../../node_modules/rxjs/dist/esm5/index.js",
       "file": "rxjs.js",
-      "fileHash": "e17af800",
+      "fileHash": "5c8d88bc",
       "needsInterop": false
     },
     "rxjs/operators": {
       "src": "../../../../../node_modules/rxjs/dist/esm5/operators/index.js",
       "file": "rxjs_operators.js",
-      "fileHash": "e07a4850",
+      "fileHash": "11e82869",
+      "needsInterop": false
+    },
+    "ngx-monaco-editor-v2": {
+      "src": "../../../../../node_modules/ngx-monaco-editor-v2/fesm2022/ngx-monaco-editor-v2.mjs",
+      "file": "ngx-monaco-editor-v2.js",
+      "fileHash": "7ae0fe0c",
       "needsInterop": false
     }
   },
   "chunks": {
+    "chunk-432OZ53O": {
+      "file": "chunk-432OZ53O.js"
+    },
     "chunk-S7NZX3NY": {
       "file": "chunk-S7NZX3NY.js"
     },
