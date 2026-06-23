@@ -1,4 +1,4 @@
-import { Component, OnInit, OnDestroy, ViewChild, NgZone } from '@angular/core';
+import { Component, OnInit, OnDestroy, ViewChild, ElementRef, NgZone } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
@@ -47,6 +47,10 @@ export class CallComponent implements OnInit, OnDestroy {
   isAuthenticated = false;
   showLoginModal = false;
 
+  // Camera and audio controls for idle page
+  cameraEnabled = true;
+  audioEnabled = true;
+
   // Round tracking
   allRounds: RoundInfo[] = [];
   currentRoundType: RoundType = 'ai_interview';
@@ -61,6 +65,8 @@ export class CallComponent implements OnInit, OnDestroy {
 
   private callId?: string;
   private retellClient: any;
+  @ViewChild('localVideo') localVideoRef?: ElementRef<HTMLVideoElement>;
+  private pendingStream: MediaStream | null = null;
   fraudEvents: ProctorEvent[] = [];
   private fraudSub: any;
 
@@ -135,7 +141,7 @@ export class CallComponent implements OnInit, OnDestroy {
   }
 
   private loadInterview(id: string): void {
-    const wasActive = this.state === 'active';
+    const wasActive = this.state === 'active' || !!this.candidateName;
     this.loadingInterview = true;
     this.errorMessage = '';
     this.clearRoundTimer();
@@ -152,6 +158,8 @@ export class CallComponent implements OnInit, OnDestroy {
             setTimeout(() => this.startNewAICall(), 500);
           } else {
             this.proctoringService.initializeProctoring();
+            // Start camera for non-AI rounds with delay to ensure video element is ready
+            setTimeout(() => this.startCameraForRound(), 500);
           }
         }
         this.loadingInterview = false;
@@ -324,10 +332,49 @@ export class CallComponent implements OnInit, OnDestroy {
     // are not ahead of the current round.
     if (!round.interview_id) return;
     if (this.allRounds.indexOf(round) <= this.currentRoundIndex) {
-      // Stop previous Retell call before navigating to new round
+      // Stop previous Retell call and cleanup before navigating to new round
       this.retellClient?.stopCall?.();
-      this.proctoringService.destroyProctoring();
+      this.attachStreamToVideo(null);
+      // Don't destroy proctoring completely - just stop camera
+      this.proctoringService.stopCamera();
+      // Navigate to the new round
       this.router.navigate(['/call', round.interview_id]);
+    }
+  }
+
+  private attachStreamToVideo(stream: MediaStream | null): void {
+    this.pendingStream = stream;
+    this.ngZone.runOutsideAngular(() => {
+      try {
+        const vid = this.localVideoRef?.nativeElement as HTMLVideoElement | undefined;
+        if (!vid) {
+          console.warn('Video element not ready yet. Stream saved for later.');
+          return;
+        }
+        if (stream) {
+          vid.srcObject = stream;
+          setTimeout(() => {
+            const playPromise = vid.play();
+            if (playPromise && typeof playPromise.then === 'function') {
+              playPromise
+                .then(() => console.log('Video playing'))
+                .catch(err => console.warn('Video play error:', err));
+            }
+          }, 100);
+          console.log('Camera stream attached successfully');
+        } else {
+          vid.srcObject = null;
+          console.warn('Cleared camera stream');
+        }
+      } catch (e) {
+        console.error('Failed to attach stream:', e);
+      }
+    });
+  }
+
+  ngAfterViewInit(): void {
+    if (this.pendingStream) {
+      this.attachStreamToVideo(this.pendingStream);
     }
   }
 
@@ -345,6 +392,14 @@ export class CallComponent implements OnInit, OnDestroy {
 
   closeLoginModal(): void {
     this.showLoginModal = false;
+  }
+
+  toggleCamera(): void {
+    this.cameraEnabled = !this.cameraEnabled;
+  }
+
+  toggleAudio(): void {
+    this.audioEnabled = !this.audioEnabled;
   }
 
   candidateLogin(): void {
@@ -409,6 +464,8 @@ export class CallComponent implements OnInit, OnDestroy {
             this.state = 'active';
             this.startRoundTimer();
             this.proctoringService.initializeProctoring();
+            // Start camera after call is established with delay to ensure video element is ready
+            setTimeout(() => this.startCameraForRound(), 500);
           } catch {
             this.errorMessage = 'Failed to start call. Please allow microphone access and try again.';
             this.state = 'error';
@@ -426,6 +483,17 @@ export class CallComponent implements OnInit, OnDestroy {
     this.state = 'active';
     this.startRoundTimer();
     this.proctoringService.initializeProctoring();
+    // Start camera for non-AI rounds with delay to ensure video element is ready
+    setTimeout(() => this.startCameraForRound(), 500);
+  }
+
+  private async startCameraForRound(): Promise<void> {
+    try {
+      const stream = await this.proctoringService.startCamera();
+      this.attachStreamToVideo(stream);
+    } catch (err) {
+      console.warn('Camera start failed', err);
+    }
   }
 
   private async startNewAICall(): Promise<void> {
@@ -469,6 +537,8 @@ export class CallComponent implements OnInit, OnDestroy {
           await this.retellClient.startCall({ accessToken: callResponse.access_token });
           this.state = 'active';
           this.proctoringService.initializeProctoring();
+          // Start camera for AI interview with delay to ensure video element is ready
+          setTimeout(() => this.startCameraForRound(), 500);
         } catch (err) {
           console.error('Failed to start Retell call:', err);
           this.errorMessage = 'Failed to start call. Please try again.';
@@ -525,6 +595,9 @@ export class CallComponent implements OnInit, OnDestroy {
   endInterview(): void {
     this.showConfirmEnd = false;
     this.retellClient?.stopCall?.();
+    // Detach stream from video before stopping
+    this.attachStreamToVideo(null);
+    this.proctoringService.stopCamera();
     this.onCallEnded();
   }
 

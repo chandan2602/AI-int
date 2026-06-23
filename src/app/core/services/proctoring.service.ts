@@ -19,6 +19,8 @@ export class ProctoringService {
 
   private initialized = false;
 
+  private localStream: MediaStream | null = null;
+
   // Counters used to decide if behaviour looks suspicious
   private blurCount = 0;
   private visibilityHiddenCount = 0;
@@ -65,8 +67,48 @@ export class ProctoringService {
     document.removeEventListener('contextmenu', this.onRightClick);
     document.removeEventListener('fullscreenchange', this.onFullscreenExit);
 
+    // stop camera if active
+    this.stopCamera();
+
     this.eventsSubject.complete();
     this.fraudSubject.complete();
+  }
+
+  async startCamera(): Promise<MediaStream> {
+    if (this.localStream) return this.localStream;
+    try {
+      // Try with both video and audio first
+      const stream = await navigator.mediaDevices.getUserMedia({ 
+        video: { width: { ideal: 1280 }, height: { ideal: 720 } },
+        audio: true 
+      });
+      this.localStream = stream;
+      this.emitEvent('camera-started');
+      return stream;
+    } catch (err: any) {
+      console.error('Camera permission error:', err);
+      // Fallback: try video only
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        this.localStream = stream;
+        this.emitEvent('camera-started');
+        return stream;
+      } catch (fallbackErr) {
+        this.emitEvent('camera-error', { error: err?.message || 'Camera access denied' });
+        throw fallbackErr;
+      }
+    }
+  }
+
+  stopCamera(): void {
+    if (!this.localStream) return;
+    try {
+      this.localStream.getTracks().forEach(t => t.stop());
+    } catch (e) {
+      // ignore
+    }
+    this.localStream = null;
+    this.emitEvent('camera-stopped');
   }
 
   private emitEvent(type: string, detail?: any) {

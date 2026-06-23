@@ -45,6 +45,15 @@ export class InterviewCreateComponent {
   aptInterviewId = '';
   aptQuestions: McqQuestion[] = [];
   aptError = '';
+  aptShowAddForm = false;
+  aptAddingQ = false;
+  aptAddQError = '';
+  newAptQ = {
+    question: '',
+    options: ['', '', '', ''],
+    correct_answer: 'A',
+    explanation: '',
+  };
 
   // ── Round 2 – Coding ───────────────────────────────────────────────────────
   codingInterviewId = '';
@@ -90,6 +99,30 @@ export class InterviewCreateComponent {
     return !!this.info.interviewName.trim() && !!this.info.jobRole.trim();
   }
 
+  trackByIndex(index: number): number {
+    return index;
+  }
+
+  updateAptQuestion(event: Event): void {
+    const target = event.target as HTMLTextAreaElement;
+    this.newAptQ.question = target.value;
+  }
+
+  updateAptOption(index: number, event: Event): void {
+    const target = event.target as HTMLInputElement;
+    this.newAptQ.options[index] = target.value;
+  }
+
+  updateAptCorrectAnswer(event: Event): void {
+    const target = event.target as HTMLSelectElement;
+    this.newAptQ.correct_answer = target.value;
+  }
+
+  updateAptExplanation(event: Event): void {
+    const target = event.target as HTMLTextAreaElement;
+    this.newAptQ.explanation = target.value;
+  }
+
   proceedToRounds(): void {
     if (this.infoValid()) {
       if (!this.driveId) this.driveId = crypto.randomUUID();
@@ -123,6 +156,83 @@ export class InterviewCreateComponent {
       error: err => {
         this.aptLoading = false;
         this.aptError = err?.error?.detail || 'Failed to generate questions from PDF.';
+      },
+    });
+  }
+
+  addManualQuestionStart(): void {
+    // If we already have an interview ID from PDF upload, just show the form
+    if (this.aptInterviewId) {
+      this.aptDone = true;
+      this.aptShowAddForm = true;
+      return;
+    }
+
+    // Otherwise, create an empty aptitude round first
+    this.aptLoading = true;
+    this.aptError = '';
+
+    // Call endpoint to create an empty aptitude round
+    this.aptitudeService.createAptitudeRound(this.info.interviewName, this.orgId, this.userId, this.aptDuration, this.driveId).subscribe({
+      next: (res: any) => {
+        this.aptLoading = false;
+        this.aptDone = true;
+        this.aptInterviewId = res.interview_id;
+        this.aptShowAddForm = true;
+      },
+      error: (err) => {
+        this.aptLoading = false;
+        // If endpoint doesn't exist, set a dummy ID and proceed
+        // The backend will create the interview when the first question is added
+        if (!this.aptInterviewId) {
+          this.aptInterviewId = this.driveId + '-apt';
+        }
+        this.aptDone = true;
+        this.aptShowAddForm = true;
+      },
+    });
+  }
+
+  addAptitudeQuestion(): void {
+    // Validate the new question
+    if (!this.newAptQ.question.trim()) {
+      this.aptAddQError = 'Question text is required.';
+      return;
+    }
+    if (this.newAptQ.options.some(opt => !opt.trim())) {
+      this.aptAddQError = 'All 4 options are required.';
+      return;
+    }
+    if (!['A', 'B', 'C', 'D'].includes(this.newAptQ.correct_answer)) {
+      this.aptAddQError = 'Valid correct answer must be selected.';
+      return;
+    }
+
+    this.aptAddingQ = true;
+    this.aptAddQError = '';
+
+    this.aptitudeService.addAptitudeQuestion(this.aptInterviewId, {
+      question: this.newAptQ.question,
+      options: this.newAptQ.options,
+      correct_answer: this.newAptQ.correct_answer,
+      explanation: this.newAptQ.explanation,
+    }).subscribe({
+      next: res => {
+        this.aptAddingQ = false;
+        // Add the new question to the list
+        this.aptQuestions.push(res.question_added);
+        // Reset the form fields only (preserve interview ID)
+        this.newAptQ = {
+          question: '',
+          options: ['', '', '', ''],
+          correct_answer: 'A',
+          explanation: '',
+        };
+        this.aptAddQError = '';
+      },
+      error: err => {
+        this.aptAddingQ = false;
+        this.aptAddQError = err?.error?.detail || 'Failed to add question.';
       },
     });
   }

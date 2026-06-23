@@ -107,6 +107,22 @@ export class AptitudeService {
     });
   }
 
+  createAptitudeRound(
+    interviewName: string,
+    organizationId = 'org-1',
+    userId = 'user-1',
+    timeDuration?: string,
+    driveId?: string,
+  ): Observable<CreateCodingRoundResponse> {
+    return this.http.post<CreateCodingRoundResponse>(`${this.base}/create-aptitude-round`, {
+      interview_name: interviewName,
+      organization_id: organizationId,
+      user_id: userId,
+      time_duration: timeDuration,
+      drive_id: driveId,
+    });
+  }
+
   addCodingQuestion(
     interviewId: string,
     q: Omit<CodingQuestion, 'id'>,

@@ -171,6 +171,7 @@
             </div>
             <div class="panel-footer">
               <button class="btn-ghost-sm" (click)="aptDone=false; aptFile=null; aptQuestions=[]">↺ Re-upload</button>
+              <button class="btn-primary-lg" (click)="aptShowAddForm = !aptShowAddForm">{{ aptShowAddForm ? '✕ Close' : '+ Add Manual Question' }}</button>
               <button class="btn-primary-lg" (click)="step='coding'">Next: Coding Round →</button>
             </div>
           </ng-container>
@@ -196,9 +197,58 @@
                 <ng-container *ngIf="!aptLoading">🚀 Generate Questions from PDF</ng-container>
                 <ng-container *ngIf="aptLoading"><span class="spin-inline"></span> Analysing PDF...</ng-container>
               </button>
+              <button class="btn-ghost-sm" (click)="addManualQuestionStart()">Add Manual Questions</button>
               <button class="btn-ghost-sm" (click)="step='coding'">Skip →</button>
             </div>
           </ng-template>
+        </div>
+
+        <!-- Manual question form -->
+        <div class="section-card" *ngIf="aptDone && aptShowAddForm">
+          <div class="section-card-header">
+            <div class="section-icon si-apt">✏️</div>
+            <h2>Add Manual Question</h2>
+          </div>
+          <div class="section-card-body">
+            <div class="field-group">
+              <label>Question Text <span class="req">*</span></label>
+              <textarea [value]="newAptQ.question" (input)="updateAptQuestion($event)" rows="3" placeholder="Enter the question text..."></textarea>
+            </div>
+
+            <div class="field-group">
+              <label>Options <span class="req">*</span></label>
+              <div class="options-grid">
+                <div class="option-input" *ngFor="let opt of newAptQ.options; let i = index; trackBy: trackByIndex">
+                  <span class="opt-label">{{ ['A', 'B', 'C', 'D'][i] }}</span>
+                  <input [value]="newAptQ.options[i]" (input)="updateAptOption(i, $event)" [placeholder]="'Option ' + ['A', 'B', 'C', 'D'][i]" />
+                </div>
+              </div>
+            </div>
+
+            <div class="field-group">
+              <label>Correct Answer <span class="req">*</span></label>
+              <select [value]="newAptQ.correct_answer" (change)="updateAptCorrectAnswer($event)">
+                <option value="A">A</option>
+                <option value="B">B</option>
+                <option value="C">C</option>
+                <option value="D">D</option>
+              </select>
+            </div>
+
+            <div class="field-group">
+              <label>Explanation <span class="optional">(optional)</span></label>
+              <textarea [value]="newAptQ.explanation" (input)="updateAptExplanation($event)" rows="2" placeholder="Brief explanation for the correct answer..."></textarea>
+            </div>
+
+            <div class="error-bar" *ngIf="aptAddQError">⚠ {{ aptAddQError }}</div>
+          </div>
+          <div class="panel-footer">
+            <button class="btn-ghost-sm" (click)="aptShowAddForm = false">Cancel</button>
+            <button class="btn-primary-lg apt-btn" (click)="addAptitudeQuestion()" [disabled]="aptAddingQ">
+              <ng-container *ngIf="!aptAddingQ">+ Add Question</ng-container>
+              <ng-container *ngIf="aptAddingQ"><span class="spin-inline"></span> Adding...</ng-container>
+            </button>
+          </div>
         </div>
 
       </ng-container>

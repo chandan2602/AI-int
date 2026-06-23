@@ -34,6 +34,28 @@
               <div class="signin-prompt"><span class="signin-prompt-icon">🔐</span><p>Please <button class="inline-link" (click)="openLoginModal()">sign in</button> with your credentials to enable the assessment.</p></div>
             </ng-template>
 
+            <!-- Camera and Audio Setup -->
+            <div class="camera-audio-setup">
+              <div class="setup-title">📹 Camera & Audio Setup</div>
+              <p class="setup-info">Please ensure your camera and microphone are turned on and you have adequate lighting for the assessment.</p>
+              <div class="setup-controls">
+                <div class="control-item">
+                  <button class="toggle-btn" [class.enabled]="cameraEnabled" (click)="toggleCamera()">
+                    <span class="icon">📷</span>
+                    <span>Camera</span>
+                    <span class="status">{{ cameraEnabled ? 'ON' : 'OFF' }}</span>
+                  </button>
+                </div>
+                <div class="control-item">
+                  <button class="toggle-btn" [class.enabled]="audioEnabled" (click)="toggleAudio()">
+                    <span class="icon">🎤</span>
+                    <span>Microphone</span>
+                    <span class="status">{{ audioEnabled ? 'ON' : 'OFF' }}</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
             <!-- New guidelines block -->
             <div class="guidelines">
               <div class="guideline-card do">
@@ -81,7 +103,7 @@
 
       <!-- ACTIVE -->
       <div class="layout active-layout" *ngIf="isActive">
-        <nav class="top-nav"><div class="nav-left"><div class="brand-logo">Dhanush <span>AI</span></div></div><div class="nav-right"><div class="timer">{{ formatTime(roundTimeLeft) }}</div><div class="candidate-profile"><div class="avatar-placeholder">{{ candidateName ? (candidateName.charAt(0) | uppercase) : 'G' }}</div><div class="candidate-name">{{ candidateName || 'Guest' }}</div></div></div></nav>
+        <nav class="top-nav"><div class="nav-left"><div class="brand-logo">Dhanush <span>AI</span></div></div><div class="nav-right"><div class="timer">{{ formatTime(roundTimeLeft) }}</div><div class="candidate-profile"><div class="avatar-placeholder">{{ candidateName ? (candidateName.charAt(0) | uppercase) : 'G' }}</div><div class="candidate-name">{{ candidateName || 'Guest' }}</div></div><video #localVideo autoplay muted playsinline allow="camera;" class="local-video" [style.display]="'block'"></video></div></nav>
         <div class="main-grid">
           <aside class="rounds-sidebar">
             <div class="rounds-title">Assessment Rounds</div>
